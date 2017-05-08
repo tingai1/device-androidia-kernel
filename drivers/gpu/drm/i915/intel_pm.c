@@ -3162,28 +3162,31 @@ void skl_ddb_get_hw_state(struct drm_i915_private *dev_priv,
  * Return value is provided in 16.16 fixed point form to retain fractional part.
  * Caller should take care of dividing & rounding off the value.
  */
-static uint32_t
+static uint_fixed_16_16_t
 skl_plane_downscale_amount(const struct intel_plane_state *pstate)
 {
-	uint32_t downscale_h, downscale_w;
 	uint32_t src_w, src_h, dst_w, dst_h;
+	uint_fixed_16_16_t fp_w_ratio, fp_h_ratio;
+	uint_fixed_16_16_t downscale_h, downscale_w;
 
 	if (WARN_ON(!pstate->base.visible))
-		return DRM_PLANE_HELPER_NO_SCALING;
+		return u32_to_fixed_16_16(0);
 
 	/* n.b., src is 16.16 fixed point, dst is whole integer */
-	src_w = drm_rect_width(&pstate->base.src);
-	src_h = drm_rect_height(&pstate->base.src);
+	src_w = drm_rect_width(&pstate->base.src) >> 16;
+	src_h = drm_rect_height(&pstate->base.src) >> 16;
 	dst_w = drm_rect_width(&pstate->base.dst);
 	dst_h = drm_rect_height(&pstate->base.dst);
 	if (drm_rotation_90_or_270(pstate->base.rotation))
 		swap(dst_w, dst_h);
 
-	downscale_h = max(src_h / dst_h, (uint32_t)DRM_PLANE_HELPER_NO_SCALING);
-	downscale_w = max(src_w / dst_w, (uint32_t)DRM_PLANE_HELPER_NO_SCALING);
+	fp_w_ratio = fixed_16_16_div(src_w, dst_w);
+	fp_h_ratio = fixed_16_16_div(src_h, dst_h);
+	downscale_w = max_fixed_16_16(fp_w_ratio, u32_to_fixed_16_16(1));
+	downscale_h = max_fixed_16_16(fp_h_ratio, u32_to_fixed_16_16(1));
 
 	/* Provide result in 16.16 fixed point */
-	return (uint64_t)downscale_w * downscale_h >> 16;
+	return mul_fixed_16_16(downscale_w, downscale_h);
 }
 
 static unsigned int
@@ -3192,10 +3195,11 @@ skl_plane_relative_data_rate(const struct intel_crtc_state *cstate,
 			     int y)
 {
 	struct intel_plane_state *intel_pstate = to_intel_plane_state(pstate);
-	uint32_t down_scale_amount, data_rate;
+	uint32_t data_rate;
 	uint32_t width = 0, height = 0;
 	struct drm_framebuffer *fb;
 	u32 format;
+	uint_fixed_16_16_t down_scale_amount;
 
 	if (!intel_pstate->base.visible)
 		return 0;
@@ -3229,7 +3233,7 @@ skl_plane_relative_data_rate(const struct intel_crtc_state *cstate,
 
 	down_scale_amount = skl_plane_downscale_amount(intel_pstate);
 
-	return (uint64_t)data_rate * down_scale_amount >> 16;
+	return mul_u32_fixed_16_16_round_up(data_rate, down_scale_amount);
 }
 
 /*
@@ -3515,8 +3519,7 @@ static uint32_t skl_adjusted_plane_pixel_rate(const struct intel_crtc_state *cst
 					      struct intel_plane_state *pstate)
 {
 	uint64_t adjusted_pixel_rate;
-	uint64_t downscale_amount;
-	uint64_t pixel_rate;
+	uint_fixed_16_16_t downscale_amount;
 
 	/* Shouldn't reach here on disabled planes... */
 	if (WARN_ON(!pstate->base.visible))
@@ -3529,10 +3532,8 @@ static uint32_t skl_adjusted_plane_pixel_rate(const struct intel_crtc_state *cst
 	adjusted_pixel_rate = cstate->pixel_rate;
 	downscale_amount = skl_plane_downscale_amount(pstate);
 
-	pixel_rate = adjusted_pixel_rate * downscale_amount >> 16;
-	WARN_ON(pixel_rate != clamp_t(uint32_t, pixel_rate, 0, ~0));
-
-	return pixel_rate;
+	return mul_u32_fixed_16_16_round_up(adjusted_pixel_rate,
+					    downscale_amount);
 }
 
 static int skl_compute_plane_wm(const struct drm_i915_private *dev_priv,

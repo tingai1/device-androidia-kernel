@@ -174,6 +174,7 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 		int status)
 {
 	struct dwc3			*dwc = dep->dwc;
+	int 				defer_unmap = 0;
 
 	req->started = false;
 	list_del(&req->list);
@@ -185,14 +186,20 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 	if (dwc->ep0_bounced && dep->number <= 1)
 		dwc->ep0_bounced = false;
 
-	usb_gadget_unmap_request(&dwc->gadget, &req->request,
-			req->direction);
+	if (req->direction == 1 || dep->endpoint.address != 0 )
+		usb_gadget_unmap_request(&dwc->gadget, &req->request,
+				req->direction);
+	else
+		defer_unmap = 1;
 
 	trace_dwc3_gadget_giveback(req);
 
 	spin_unlock(&dwc->lock);
 	usb_gadget_giveback_request(&dep->endpoint, &req->request);
 	spin_lock(&dwc->lock);
+	if (defer_unmap)
+		usb_gadget_unmap_request(&dwc->gadget, &req->request,
+				req->direction);
 
 	if (dep->number > 1)
 		pm_runtime_put(dwc->dev);

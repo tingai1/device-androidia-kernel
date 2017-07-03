@@ -66,19 +66,23 @@ struct trusty_irq_state {
 #define TRUSTY_VMCALL_PENDING_INTR 0x74727505
 static inline void set_pending_intr_to_lk(uint8_t vector)
 {
+#ifdef CONFIG_X86
 	__asm__ __volatile__(
 		"vmcall"
 		::"a"(TRUSTY_VMCALL_PENDING_INTR), "b"(vector)
 	);
+#endif
 }
 
 #define TRUSTY_VMCALL_IRQ_DONE 0x74727506
 static inline void irq_register_done(void)
 {
+#ifdef CONFIG_X86
 	__asm__ __volatile__(
 		"vmcall"
 		::"a"(TRUSTY_VMCALL_IRQ_DONE)
 	);
+#endif
 }
 
 static void trusty_irq_enable_pending_irqs(struct trusty_irq_state *is,
@@ -482,7 +486,7 @@ static int trusty_irq_init_per_cpu_irq(struct trusty_irq_state *is, int tirq)
 		struct trusty_irq *trusty_irq;
 		struct trusty_irq_irqset *irqset;
 
-		if (cpu >= 32)
+		if (cpu >= NR_CPUS)
 			return -EINVAL;
 		trusty_irq = per_cpu_ptr(trusty_irq_handler_data, cpu);
 		irqset = per_cpu_ptr(is->percpu_irqs, cpu);
@@ -507,7 +511,7 @@ err_request_percpu_irq:
 	for_each_possible_cpu(cpu) {
 		struct trusty_irq *trusty_irq;
 
-		if (cpu >= 32)
+		if (cpu >= NR_CPUS)
 			return -EINVAL;
 		trusty_irq = per_cpu_ptr(trusty_irq_handler_data, cpu);
 		hlist_del(&trusty_irq->node);
@@ -642,7 +646,7 @@ static int trusty_irq_probe(struct platform_device *pdev)
 	for_each_possible_cpu(cpu) {
 		struct trusty_irq_work *trusty_irq_work;
 
-		if (cpu >= 32)
+		if (cpu >= NR_CPUS)
 			return -EINVAL;
 		trusty_irq_work = per_cpu_ptr(is->irq_work, cpu);
 		trusty_irq_work->is = is;
@@ -682,7 +686,7 @@ err_alloc_pending_percpu_irqs:
 	for_each_possible_cpu(cpu) {
 		struct trusty_irq_work *trusty_irq_work;
 
-		if (cpu >= 32)
+		if (cpu >= NR_CPUS)
 			return -EINVAL;
 		trusty_irq_work = per_cpu_ptr(is->irq_work, cpu);
 		flush_work(&trusty_irq_work->work);
@@ -721,7 +725,7 @@ static int trusty_irq_remove(struct platform_device *pdev)
 	for_each_possible_cpu(cpu) {
 		struct trusty_irq_work *trusty_irq_work;
 
-		if (cpu >= 32)
+		if (cpu >= NR_CPUS)
 			return -EINVAL;
 		trusty_irq_work = per_cpu_ptr(is->irq_work, cpu);
 		flush_work(&trusty_irq_work->work);

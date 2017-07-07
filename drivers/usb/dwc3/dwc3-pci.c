@@ -40,11 +40,6 @@
 #define PCI_DEVICE_ID_INTEL_KBP			0xa2b0
 #define PCI_DEVICE_ID_INTEL_GLK			0x31aa
 
-#define PCI_INTEL_BXT_DSM_UUID		"732b85d5-b7a7-4a1b-9ba0-4bbd00ffd511"
-#define PCI_INTEL_BXT_FUNC_PMU_PWR	4
-#define PCI_INTEL_BXT_STATE_D0		0
-#define PCI_INTEL_BXT_STATE_D3		3
-
 struct dwc3_pci {
 	struct platform_device *dwc3;
 	struct pci_dev *pci;
@@ -156,32 +151,6 @@ static int dwc3_pci_quirks(struct dwc3_pci *dwc_pci, struct platform_device *dwc
 	return 0;
 }
 
-static int dwc3_pci_dsm(struct dwc3_pci *dwc_pci, int param)
-{
-	union acpi_object *obj;
-	union acpi_object tmp;
-	union acpi_object argv4 = ACPI_INIT_DSM_ARGV4(1, &tmp);
-
-	if (!dwc_pci->has_dsm_for_pm)
-		return 0;
-
-	tmp.type = ACPI_TYPE_INTEGER;
-	tmp.integer.value = param;
-
-	acpi_str_to_uuid(PCI_INTEL_BXT_DSM_UUID, dwc_pci->uuid);
-
-	obj = acpi_evaluate_dsm(ACPI_HANDLE(&dwc_pci->pci->dev), dwc_pci->uuid,
-			1, PCI_INTEL_BXT_FUNC_PMU_PWR, &argv4);
-	if (!obj) {
-		dev_err(&dwc_pci->pci->dev, "failed to evaluate _DSM\n");
-		return -EIO;
-	}
-
-	ACPI_FREE(obj);
-
-	return 0;
-}
-
 static int dwc3_pci_probe(struct pci_dev *pci,
 		const struct pci_device_id *id)
 {
@@ -245,7 +214,6 @@ static int dwc3_pci_probe(struct pci_dev *pci,
 	device_init_wakeup(dev, true);
 	device_set_run_wake(dev, true);
 	pci_set_drvdata(pci, dwc_pci);
-	pm_runtime_put(dev);
 
 	return 0;
 err:
@@ -294,41 +262,34 @@ MODULE_DEVICE_TABLE(pci, dwc3_pci_id_table);
 #ifdef CONFIG_PM
 static int dwc3_pci_runtime_suspend(struct device *dev)
 {
-	struct dwc3_pci *dwc_pci = dev_get_drvdata(dev);
-
-	if (device_run_wake(dev))
-		return dwc3_pci_dsm(dwc_pci, PCI_INTEL_BXT_STATE_D3);
-
-	return -EBUSY;
+	return 0;
 }
 
 static int dwc3_pci_runtime_resume(struct device *dev)
 {
 	struct dwc3_pci *dwc_pci = dev_get_drvdata(dev);
 	struct platform_device *dwc3 = dwc_pci->dwc3;
-	int ret;
 
-	ret = dwc3_pci_dsm(dwc_pci, PCI_INTEL_BXT_STATE_D0);
-	if (ret)
-		return ret;
-
-	return pm_runtime_get(&dwc3->dev);
+	if (dwc3)
+		pm_runtime_get(&dwc3->dev);
+	return 0;
 }
 #endif /* CONFIG_PM */
 
 #ifdef CONFIG_PM_SLEEP
 static int dwc3_pci_suspend(struct device *dev)
 {
-	struct dwc3_pci *dwc_pci = dev_get_drvdata(dev);
-
-	return dwc3_pci_dsm(dwc_pci, PCI_INTEL_BXT_STATE_D3);
+	return 0;
 }
 
 static int dwc3_pci_resume(struct device *dev)
 {
 	struct dwc3_pci *dwc_pci = dev_get_drvdata(dev);
-
-	return dwc3_pci_dsm(dwc_pci, PCI_INTEL_BXT_STATE_D0);
+	struct platform_device *dwc3 = dwc_pci->dwc3;
+ 
+	if (dwc3)
+		pm_runtime_get(&dwc3->dev);
+	return 0;
 }
 #endif /* CONFIG_PM_SLEEP */
 

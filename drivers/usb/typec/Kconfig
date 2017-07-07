@@ -20,9 +20,9 @@ config TYPEC_WCOVE
 	tristate "Intel WhiskeyCove PMIC USB Type-C PHY driver"
 	depends on ACPI
 	depends on INTEL_SOC_PMIC
-	depends on INTEL_PMC_IPC
-	depends on BXT_WC_PMIC_OPREGION
+	depends on INTEL_PMC_IPC	
 	select TYPEC
+	select USB_PD_SINK
 	help
 	  This driver adds support for USB Type-C detection on Intel Broxton
 	  platforms that have Intel Whiskey Cove PMIC. The driver can detect the

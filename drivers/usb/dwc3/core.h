@@ -455,6 +455,29 @@
 #define DWC3_DEPCMD_TYPE_BULK		2
 #define DWC3_DEPCMD_TYPE_INTR		3
 
+/* _DSM functions */
+#define PCI_INTEL_BXT_FUNC_PMU_PWR      4
+#define PCI_INTEL_BXT_STATE_D0          0
+#define PCI_INTEL_BXT_STATE_D3          3
+
+#define PCI_INTEL_BXT_FUNC_XDCA         8
+#define PCI_INTEL_BXT_DEV_PREPARED      0
+#define PCI_INTEL_BXT_DEV_NOT_PREPARED  1
+
+#define PCI_INTEL_BXT_FUNC_GET_MODE       9
+#define PCI_INTEL_BXT_MODE_HOST           0
+#define PCI_INTEL_BXT_MODE_DEVICE         1
+#define PCI_INTEL_BXT_MODE_DEVICE_NO_VBUS 2
+
+#define PCI_INTEL_BXT_FUNC_MUX_CTRL     10
+#define PCI_INTEL_BXT_MUX_CTRL_DENY     0
+#define PCI_INTEL_BXT_MUX_CTRL_ALLOW    1
+
+
+/* ACPI Notifications */
+#define DWC3_ACPI_EVENT_MODE_HOST       0x81
+#define DWC3_ACPI_EVENT_MODE_DEVICE     0x82
+
 /* Structures */
 
 struct dwc3_trb;
@@ -603,6 +626,12 @@ enum dwc3_link_state {
 	DWC3_LINK_STATE_RESET		= 0x0e,
 	DWC3_LINK_STATE_RESUME		= 0x0f,
 	DWC3_LINK_STATE_MASK		= 0x0f,
+};
+
+enum dummy_resume_type {
+	DWC3_DUMMY_TYPE_NONE = 0,
+	DWC3_DUMMY_TYPE_RUNTIME_RESUME,
+	DWC3_DUMMY_TYPE_RESUME,
 };
 
 /* TRB Length, PCM and Status */
@@ -871,6 +900,9 @@ struct dwc3 {
 
 	enum usb_dr_mode	dr_mode;
 	enum usb_phy_interface	hsphy_mode;
+
+	bool host_mode;
+	enum dummy_resume_type dummy_resumed;
 
 	u32			fladj;
 	u32			irq_gadget;

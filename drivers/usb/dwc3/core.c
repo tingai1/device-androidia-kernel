@@ -49,7 +49,8 @@
 
 #include "debug.h"
 
-#define DWC3_DEFAULT_AUTOSUSPEND_DELAY	3000 /* ms */
+
+#define DWC3_DEFAULT_AUTOSUSPEND_DELAY	(-1)  /* prevent RTPM for usb */
 
 #define PCI_INTEL_BXT_DSM_UUID		"732b85d5-b7a7-4a1b-9ba0-4bbd00ffd511"
 
